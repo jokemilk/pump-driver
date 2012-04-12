@@ -29,6 +29,8 @@
 								<option id="gnu.c.compiler.option.include.paths.303359389" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/home/jo/workdir/kernal/linux-3.2-build/linux-3.2/include"/>
 									<listOptionValue builtIn="false" value="/home/jo/workdir/kernal/linux-3.2-build/linux-3.2/arch/arm/include"/>
+									<listOptionValue builtIn="false" value="/home/jo/workdir/kernal/linux-3.2-build/linux-3.2/arch/arm/mach-s3c2440/include"/>
+									<listOptionValue builtIn="false" value="/home/jo/workdir/kernal/linux-3.2-build/linux-3.2/arch/arm/plat-samsung/include"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.310954587" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
