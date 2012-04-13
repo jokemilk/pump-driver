@@ -42,6 +42,8 @@
 #endif
 
 #define def_freq 200
+#define CHL	1
+#define PRES 9
 
 struct pump_dev
 {
@@ -51,6 +53,8 @@ struct pump_dev
 //	unsigned long size; /* amount of data stored here */
 //	unsigned int access_key; /* used by sculluid and scullpriv */
 	unsigned long freq;
+	int ad_value;
+	struct semaphore ADC_LOCK;
 	struct semaphore lock;
 	struct semaphore sem; /* mutual exclusion semaphore     */
 	struct cdev cdev; /* Char device structure		*/
