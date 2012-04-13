@@ -31,6 +31,7 @@
 									<listOptionValue builtIn="false" value="/home/jo/workdir/kernal/linux-3.2-build/linux-3.2/arch/arm/include"/>
 									<listOptionValue builtIn="false" value="/home/jo/workdir/kernal/linux-3.2-build/linux-3.2/arch/arm/mach-s3c2440/include"/>
 									<listOptionValue builtIn="false" value="/home/jo/workdir/kernal/linux-3.2-build/linux-3.2/arch/arm/plat-samsung/include"/>
+									<listOptionValue builtIn="false" value="/home/jo/workdir/kernal/linux-3.2-build/linux-3.2/arch/arm/mach-s3c2410/include"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.310954587" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>

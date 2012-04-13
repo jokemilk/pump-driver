@@ -41,7 +41,7 @@
 #define PUMP_MAJOR 0   /* dynamic major by default */
 #endif
 
-
+#define def_freq 200
 
 struct pump_dev
 {
@@ -50,6 +50,7 @@ struct pump_dev
 //	int qset; /* the current array size */
 //	unsigned long size; /* amount of data stored here */
 //	unsigned int access_key; /* used by sculluid and scullpriv */
+	unsigned long freq;
 	struct semaphore lock;
 	struct semaphore sem; /* mutual exclusion semaphore     */
 	struct cdev cdev; /* Char device structure		*/
