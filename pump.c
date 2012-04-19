@@ -186,12 +186,24 @@ int pump_release(struct inode *inode, struct file *filp)
 ssize_t pump_read(struct file *filp, char __user *buf, size_t count,
 		loff_t *f_pos)
 {
+	struct pump_dev *dev; /* device information */
+	dev = filp->private_data; /* for other methods */
+	if (!down_trylock(&dev->sem))
+	{
+
+	}
+	else
+		return -EBUSY;
 	return 0;
 }
 
 ssize_t pump_write(struct file *filp, const char __user *buf, size_t count,
 		loff_t *f_pos)
 {
+	struct pump_dev *dev; /* device information */
+	dev = filp->private_data; /* for other methods */
+
+
 	return 0;
 }
 /*
@@ -267,6 +279,7 @@ static int pump_init(void)
 	memset(pump_device, 0, sizeof(struct pump_dev));
 	init_MUTEX(&pump_device->lock);
 	init_MUTEX(&pump_device->ADC_LOCK);
+	spin_lock_init(&pump_device->spin);
 	pump_setup_cdev(pump_device);
 
 	pump_device->freq = def_freq;

@@ -54,6 +54,7 @@ struct pump_dev
 //	unsigned int access_key; /* used by sculluid and scullpriv */
 	unsigned long freq;
 	int ad_value;
+	spinlock_t spin;
 	struct semaphore ADC_LOCK;
 	struct semaphore lock;
 	struct semaphore sem; /* mutual exclusion semaphore     */
