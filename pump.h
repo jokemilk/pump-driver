@@ -44,6 +44,24 @@
 #define def_freq 200
 #define CHL	1
 #define PRES 9
+#define DEF_COMP_RATIO	1
+#define DEF_VOL		5000.0
+#define DEF_HEART_BEAT 70
+
+struct PUMP_STATE
+{
+	float compress_ratio; 	//压缩比
+	double volume;		    //压缩总量
+	uint heart_beat;
+	uint direction;
+	int step;
+	uint pwm_rate;
+	uint stat;
+	uint pos;
+	uint period;//定时器时间
+	uint time_push;
+	uint time_pull;
+};
 
 struct pump_dev
 {
@@ -55,10 +73,11 @@ struct pump_dev
 	unsigned long freq;
 	int ad_value;
 	spinlock_t spin;
-	struct semaphore ADC_LOCK;
+	spinlock_t ADC_LOCK;
 	struct semaphore lock;
 	struct semaphore sem; /* mutual exclusion semaphore     */
 	struct cdev cdev; /* Char device structure		*/
+	struct PUMP_STATE pump_state;
 };
 
 /*

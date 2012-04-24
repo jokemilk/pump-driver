@@ -17,7 +17,7 @@
 #include <linux/clk.h>
 //#include <linux/irq.h>
 //registers
-#include <plat/regs-timer.h>
+//#include <plat/regs-timer.h>
 #include <plat/regs-adc.h>
 #include <mach/regs-irq.h>
 #include <mach/gpio.h>
@@ -55,6 +55,7 @@ static volatile int ev_adc = 0;
 static int adc_data;
 
 static struct clk *adc_clock;
+static struct clk *clk_p;
 
 static void __iomem *base_addr;
 
@@ -70,6 +71,51 @@ static void __iomem *base_addr;
 #define ADC_INPUT(x)		((x) << 3)
 #define ADC_START		(1 << 0)
 #define ADC_ENDCVT		(1 << 15)
+
+
+#define S3C_TIMERREG(x) (x)
+#define S3C_TIMERREG2(tmr,reg) S3C_TIMERREG((reg)+0x0c+((tmr)*0x0c))
+
+#define S3C2410_TCFG0	      S3C_TIMERREG(0x00)
+#define S3C2410_TCFG1	      S3C_TIMERREG(0x04)
+#define S3C2410_TCON	      S3C_TIMERREG(0x08)
+
+#define S3C2410_TCNTB(tmr)    S3C_TIMERREG2(tmr, 0x00)
+#define S3C2410_TCMPB(tmr)    S3C_TIMERREG2(tmr, 0x04)
+#define S3C2410_TCNTO(tmr)    S3C_TIMERREG2(tmr, (((tmr) == 4) ? 0x04 : 0x08))
+
+#define S3C2410_TCON_T4RELOAD	  (1<<22)
+#define S3C2410_TCON_T4MANUALUPD  (1<<21)
+#define S3C2410_TCON_T4START	  (1<<20)
+
+#define S3C2410_TCON_T3RELOAD	  (1<<19)
+#define S3C2410_TCON_T3INVERT	  (1<<18)
+#define S3C2410_TCON_T3MANUALUPD  (1<<17)
+#define S3C2410_TCON_T3START	  (1<<16)
+
+#define S3C2410_TCON_T2RELOAD	  (1<<15)
+#define S3C2410_TCON_T2INVERT	  (1<<14)
+#define S3C2410_TCON_T2MANUALUPD  (1<<13)
+#define S3C2410_TCON_T2START	  (1<<12)
+
+#define S3C2410_TCON_T1RELOAD	  (1<<11)
+#define S3C2410_TCON_T1INVERT	  (1<<10)
+#define S3C2410_TCON_T1MANUALUPD  (1<<9)
+#define S3C2410_TCON_T1START	  (1<<8)
+
+#define S3C2410_TCON_T0DEADZONE	  (1<<4)
+#define S3C2410_TCON_T0RELOAD	  (1<<3)
+#define S3C2410_TCON_T0INVERT	  (1<<2)
+#define S3C2410_TCON_T0MANUALUPD  (1<<1)
+#define S3C2410_TCON_T0START	  (1<<0)
+
+static void __iomem *base_addr_timer;
+#define rTCFG0 (*(volatile unsigned long *)(base_addr_timer + S3C2410_TCFG0))
+#define rTCFG1 (*(volatile unsigned long *)(base_addr_timer + S3C2410_TCFG1))
+#define rTCON	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCON))
+#define rTCNTB0	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTB(0)))
+#define rTCMPB0	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCMPB(0)))
+
 
 #define START_ADC_AIN(ch, prescale) \
 	do{ 	ADCCON = PRESCALE_EN | PRSCVL(prescale) | ADC_INPUT((ch)) ; \
@@ -93,11 +139,12 @@ static irqreturn_t adcdone_int_handler(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+#if 0
 static irqreturn_t timer_handler(int irq, void *dev_id)
 {
 //	static int cnt = 0;
 //	printk("\rtimer_handler %d", cnt++);
-	if (down_trylock(&pump_device->ADC_LOCK) == 0)
+	spin_lock(&pump_device->ADC_LOCK);
 	{
 		ADC_enable = 1;
 		START_ADC_AIN(adcdev.channel, adcdev.prescale);
@@ -112,17 +159,28 @@ static irqreturn_t timer_handler(int irq, void *dev_id)
 //			copy_to_user(buffer, (char *)&adc_data, sizeof(adc_data));
 
 		ADC_enable = 0;
-		up(&pump_device->ADC_LOCK);
 	}
-	else
-	{
-		pump_device->ad_value = -1;
-	}
+	spin_unlock(&pump_device->ADC_LOCK);
+	return IRQ_HANDLED;
+}
+#endif
+
+static irqreturn_t timer_handler(int irq, void *dev_id)
+{
+		static int cnt = 0;
+		printk("\rtimer_handler %d", cnt++);
+		return IRQ_HANDLED;
+}
+
+static irqreturn_t timer_handler_2(int irq, void *dev_id)
+{
+
 	return IRQ_HANDLED;
 }
 /*
  * Open and close
  */
+#if 0
 int pump_open(struct inode *inode, struct file *filp)
 {
 	int result;
@@ -172,6 +230,9 @@ int pump_open(struct inode *inode, struct file *filp)
 	return 0; /* success */
 }
 
+
+
+
 int pump_release(struct inode *inode, struct file *filp)
 {
 	struct pump_dev *dev; /* device information */
@@ -180,6 +241,18 @@ int pump_release(struct inode *inode, struct file *filp)
 	up(&dev->lock);
 	return 0;
 }
+#endif
+
+int pump_open(struct inode *inode, struct file *filp)
+{
+	return 0;
+}
+
+int pump_release(struct inode *inode, struct file *filp)
+{
+	return 0;
+}
+
 /*
  * Data management: read and write
  */
@@ -244,6 +317,8 @@ static int pump_init(void)
 	int result;
 	dev_t dev = 0;
 
+	unsigned long pclk;
+
 	printk("start initial driver pump!\n");
 	/*
 	 * Get a range of minor numbers to work with, asking for a dynamic
@@ -278,7 +353,7 @@ static int pump_init(void)
 
 	memset(pump_device, 0, sizeof(struct pump_dev));
 	init_MUTEX(&pump_device->lock);
-	init_MUTEX(&pump_device->ADC_LOCK);
+	spin_lock_init(&pump_device->ADC_LOCK);
 	spin_lock_init(&pump_device->spin);
 	pump_setup_cdev(pump_device);
 
@@ -289,8 +364,18 @@ static int pump_init(void)
 	{
 		printk(KERN_ERR "failed to remap register block\n");
 		result = -ENOMEM;
-		goto fail_map;
+		goto fail_map_1;
 	}
+
+	base_addr_timer=ioremap(S3C2410_PA_TIMER,0x20);
+
+	if (base_addr_timer == NULL)
+	{
+		printk(KERN_ERR "failed to remap register block\n");
+		result = -ENOMEM;
+		goto fail_map_2;
+	}
+
 	adc_clock = clk_get(NULL, "adc");
 	if (!adc_clock)
 	{
@@ -307,9 +392,34 @@ static int pump_init(void)
 		goto fail_ioumap;
 
 	printk("initial driver pump success!\n ");
+
+	{
+		clk_p = clk_get(NULL, "pclk");
+		pclk = clk_get_rate(clk_p);
+		rTCFG0 &= ~0xff;
+		rTCFG0 |= 1;
+		rTCFG1 &= ~0xf;
+		rTCFG1 |= 3;
+		rTCNTB0 = (pclk/32);   //压缩的时间
+		rTCMPB0 = 0;
+
+		rTCON |= S3C2410_TCON_T0MANUALUPD;
+		rTCON |= (S3C2410_TCON_T0START | S3C2410_TCON_T0RELOAD); //
+		rTCON &= ~S3C2410_TCON_T0MANUALUPD;
+		result = request_irq(IRQ_TIMER0, timer_handler, IRQF_DISABLED, "pump",
+				NULL);
+		if (result < 0)
+		{
+			rTCON &=~S3C2410_TCON_T0START;
+			printk("irq request fail\n");
+		}
+}
+	result = request_irq(IRQ_ADC, adcdone_int_handler, IRQF_SHARED, "pump",
+				&adcdev);
 	return 0;
-	fail_ioumap: iounmap(base_addr);
-	fail_map: kfree(pump_device);
+	fail_ioumap: iounmap(base_addr_timer);
+	fail_map_2: iounmap(base_addr);
+	fail_map_1: kfree(pump_device);
 	fail_req:
 	/* cleanup_module is never called if registering failed */
 	unregister_chrdev_region(dev, 1);
@@ -322,13 +432,21 @@ static void pump_exit(void)
 	dev_t dev = MKDEV(pump_major, pump_minor);
 	kfree(pump_device);
 	free_irq(IRQ_ADC, &adcdev);
+	free_irq(IRQ_TIMER0, NULL);
+
+	iounmap(base_addr_timer);
 	iounmap(base_addr);
+
 	if (adc_clock)
 	{
 		clk_disable(adc_clock);
 		clk_put(adc_clock);
 		adc_clock = NULL;
 	}
+
+	clk_disable(clk_p);
+	clk_put(clk_p);
+
 	unregister_chrdev_region(dev, 1);
 	printk("exit driver driver pump!\n");
 }
@@ -337,4 +455,3 @@ module_init(pump_init);
 module_exit(pump_exit);
 MODULE_AUTHOR("jokemilk,jokemilk@yahoo.com.cn");
 MODULE_LICENSE("Dual BSD/GPL");
-
