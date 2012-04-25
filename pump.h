@@ -41,6 +41,10 @@
 #define PUMP_MAJOR 0   /* dynamic major by default */
 #endif
 
+
+/*
+ * Macros to default values
+ */
 #define def_freq 200
 #define CHL	1
 #define PRES 9
@@ -49,7 +53,69 @@
 #define DEF_HEART_BEAT 70
 #define PCLK	50000000L
 
+/*
+ * Macros to ioremap
+ */
+#define S3C_TIMERREG(x) (x)
+#define S3C_TIMERREG2(tmr,reg) S3C_TIMERREG((reg)+0x0c+((tmr)*0x0c))
 
+#define S3C2410_TCFG0	      S3C_TIMERREG(0x00)
+#define S3C2410_TCFG1	      S3C_TIMERREG(0x04)
+#define S3C2410_TCON	      S3C_TIMERREG(0x08)
+
+#define S3C2410_TCNTB(tmr)    S3C_TIMERREG2(tmr, 0x00)
+#define S3C2410_TCMPB(tmr)    S3C_TIMERREG2(tmr, 0x04)
+#define S3C2410_TCNTO(tmr)    S3C_TIMERREG2(tmr, (((tmr) == 4) ? 0x04 : 0x08))
+
+#define S3C2410_TCON_T4RELOAD	  (1<<22)
+#define S3C2410_TCON_T4MANUALUPD  (1<<21)
+#define S3C2410_TCON_T4START	  (1<<20)
+
+#define S3C2410_TCON_T3RELOAD	  (1<<19)
+#define S3C2410_TCON_T3INVERT	  (1<<18)
+#define S3C2410_TCON_T3MANUALUPD  (1<<17)
+#define S3C2410_TCON_T3START	  (1<<16)
+
+#define S3C2410_TCON_T2RELOAD	  (1<<15)
+#define S3C2410_TCON_T2INVERT	  (1<<14)
+#define S3C2410_TCON_T2MANUALUPD  (1<<13)
+#define S3C2410_TCON_T2START	  (1<<12)
+
+#define S3C2410_TCON_T1RELOAD	  (1<<11)
+#define S3C2410_TCON_T1INVERT	  (1<<10)
+#define S3C2410_TCON_T1MANUALUPD  (1<<9)
+#define S3C2410_TCON_T1START	  (1<<8)
+
+#define S3C2410_TCON_T0DEADZONE	  (1<<4)
+#define S3C2410_TCON_T0RELOAD	  (1<<3)
+#define S3C2410_TCON_T0INVERT	  (1<<2)
+#define S3C2410_TCON_T0MANUALUPD  (1<<1)
+#define S3C2410_TCON_T0START	  (1<<0)
+
+static void __iomem *base_addr_timer;
+#define rTCFG0 (*(volatile unsigned long *)(base_addr_timer + S3C2410_TCFG0))
+#define rTCFG1 (*(volatile unsigned long *)(base_addr_timer + S3C2410_TCFG1))
+#define rTCON	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCON))
+#define rTCNTB0	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTB(0)))
+#define rTCMPB0	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCMPB(0)))
+#define rTCNTB1	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTB(1)))
+#define rTCMPB1	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCMPB(1)))
+#define rTCNTB2	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTB(2)))
+#define rTCMPB2	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCMPB(2)))
+
+
+#define S3C2410_GPBCON	   (0x10)
+#define S3C2410_GPBDAT	   (0x14)
+#define S3C2410_GPBUP	   (0x18)
+
+static void __iomem *base_addr_io;
+#define rGPBCON    (*(volatile unsigned *)(base_addr_io + S3C2410_GPBCON))	//Port B control
+#define rGPBDAT    (*(volatile unsigned *)(base_addr_io + S3C2410_GPBDAT))	//Port B data
+#define rGPBUP     (*(volatile unsigned *)(base_addr_io + S3C2410_GPBUP))	//Pull-up control B
+
+/*
+ * data structures
+ */
 struct PUMP_STATE
 {
 	float compress_ratio; 	//压缩比
@@ -74,6 +140,7 @@ struct pump_dev
 //	unsigned int access_key; /* used by sculluid and scullpriv */
 	unsigned long freq;
 	int ad_value;
+	int globle_cnt;
 	spinlock_t ADC_LOCK;
 	spinlock_t lock;
 	struct semaphore sem; /* mutual exclusion semaphore     */
