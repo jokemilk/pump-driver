@@ -47,6 +47,8 @@
 #define DEF_COMP_RATIO	1
 #define DEF_VOL		5000.0
 #define DEF_HEART_BEAT 70
+#define PCLK	50000000L
+
 
 struct PUMP_STATE
 {

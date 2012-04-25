@@ -115,6 +115,21 @@ static void __iomem *base_addr_timer;
 #define rTCON	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCON))
 #define rTCNTB0	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTB(0)))
 #define rTCMPB0	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCMPB(0)))
+#define rTCNTB1	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTB(1)))
+#define rTCMPB1	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCMPB(1)))
+#define rTCNTB2	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTB(2)))
+#define rTCMPB2	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCMPB(2)))
+
+
+
+#define S3C2410_GPBCON	   (0x10)
+#define S3C2410_GPBDAT	   (0x14)
+#define S3C2410_GPBUP	   (0x18)
+
+static void __iomem *base_addr_io;
+#define rGPBCON    (*(volatile unsigned *)(base_addr_io + S3C2410_GPBCON))	//Port B control
+#define rGPBDAT    (*(volatile unsigned *)(base_addr_io + S3C2410_GPBDAT))	//Port B data
+#define rGPBUP     (*(volatile unsigned *)(base_addr_io + S3C2410_GPBUP))	//Pull-up control B
 
 
 #define START_ADC_AIN(ch, prescale) \
@@ -123,6 +138,29 @@ static void __iomem *base_addr_timer;
 	}while(0)
 
 struct pump_dev *pump_device; /* allocated in pump_init_module */
+
+void Buzzer_Freq_Set( unsigned long freq )
+{
+	rGPBCON &= ~3;			//set GPB0 as tout0, pwm output
+	rGPBCON |= 2;
+
+	rTCFG0 &= ~0xff;
+	rTCFG0 |= 15;			//prescaler = 15+1
+	rTCFG1 &= ~0xf;
+	rTCFG1 |= 2;			//mux = 1/8
+	rTCNTB0 = (PCLK>>7)/freq;
+	rTCMPB0 = rTCNTB0>>1;	// 50%
+	rTCON &= ~0x1f;
+	rTCON |= 0xb;			//disable deadzone, auto-reload, inv-off, update TCNTB0&TCMPB0, start timer 0
+	rTCON &= ~2;			//clear manual update bit		//clear manual update bit
+}
+
+void Buzzer_Stop( void )
+{
+	rGPBCON &= ~3;			//set GPB0 as output
+	rGPBCON |= 1;
+	rGPBDAT &= ~1;
+}
 
 /*
  * handler
@@ -168,7 +206,14 @@ static irqreturn_t timer_handler(int irq, void *dev_id)
 static irqreturn_t timer_handler(int irq, void *dev_id)
 {
 		static int cnt = 0;
-		printk("\rtimer_handler %d", cnt++);
+		static int cnt1 = 0;
+		if(cnt++ == 8333)
+		{
+			cnt = 0;
+			cnt1++;
+			printk("\rtimer_handler %d",cnt1);
+			Buzzer_Freq_Set(2000+cnt1*20);
+		}
 		return IRQ_HANDLED;
 }
 
@@ -368,6 +413,7 @@ static int pump_init(void)
 	}
 
 	base_addr_timer=ioremap(S3C2410_PA_TIMER,0x20);
+	base_addr_io = ioremap(0x56000000,0x40);
 
 	if (base_addr_timer == NULL)
 	{
@@ -396,21 +442,26 @@ static int pump_init(void)
 	{
 		clk_p = clk_get(NULL, "pclk");
 		pclk = clk_get_rate(clk_p);
-		rTCFG0 &= ~0xff;
-		rTCFG0 |= 1;
-		rTCFG1 &= ~0xf;
-		rTCFG1 |= 3;
-		rTCNTB0 = (pclk/32);   //压缩的时间
-		rTCMPB0 = 0;
 
-		rTCON |= S3C2410_TCON_T0MANUALUPD;
-		rTCON |= (S3C2410_TCON_T0START | S3C2410_TCON_T0RELOAD); //
-		rTCON &= ~S3C2410_TCON_T0MANUALUPD;
-		result = request_irq(IRQ_TIMER0, timer_handler, IRQF_DISABLED, "pump",
+		printk("rTCFG0 %ld\n",rTCFG0);
+		printk("rTCFG1 %ld\n",rTCFG1);
+		printk("rTCON %ld\n",rTCON);
+/*		rTCFG0 &= ~(0xff<<8);
+		rTCFG0 |= 255<<8;
+		rTCFG1 &= ~(0xf<<8);
+		rTCFG1 |= 3<<8;*/
+		rTCNTB2 = (pclk/3/2/1000);   //压缩的时间
+		rTCMPB2 = 0;
+
+		rTCON &= ~0x00F000;	//
+		rTCON |= S3C2410_TCON_T2MANUALUPD;
+		rTCON |= (S3C2410_TCON_T2START | S3C2410_TCON_T2RELOAD); //
+		rTCON &= ~S3C2410_TCON_T2MANUALUPD;
+		result = request_irq(IRQ_TIMER2, timer_handler, IRQF_DISABLED, "pump",
 				NULL);
 		if (result < 0)
 		{
-			rTCON &=~S3C2410_TCON_T0START;
+			rTCON &=~S3C2410_TCON_T2START;
 			printk("irq request fail\n");
 		}
 }
@@ -432,7 +483,7 @@ static void pump_exit(void)
 	dev_t dev = MKDEV(pump_major, pump_minor);
 	kfree(pump_device);
 	free_irq(IRQ_ADC, &adcdev);
-	free_irq(IRQ_TIMER0, NULL);
+	free_irq(IRQ_TIMER2, NULL);
 
 	iounmap(base_addr_timer);
 	iounmap(base_addr);
