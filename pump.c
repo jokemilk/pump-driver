@@ -37,23 +37,14 @@ struct pump_dev *pump_device; /* allocated in pump_init_module */
 
 int pump_open(struct inode *inode, struct file *filp)
 {
-	struct pump_dev *dev; /* device information */
-	dev = container_of(inode->i_cdev, struct pump_dev, cdev);
-	filp->private_data = dev; /* for other methods */
 
-	if (!down_trylock(&dev->lock))
-		return 0;
-	else
-		return -EBUSY;
 
 	return 0; /* success */
 }
 
 int pump_release(struct inode *inode, struct file *filp)
 {
-	struct pump_dev *dev; /* device information */
-	dev = filp->private_data; /* for other methods */
-	up(&dev->lock);
+
 	return 0;
 }
 /*
@@ -140,10 +131,11 @@ static int pump_init(void)
 	}
 
 	memset(pump_device, 0, sizeof(struct pump_dev));
-	init_MUTEX(&pump_device->lock);
+	spin_lock_init(&pump_device->lock);
 	pump_setup_cdev(pump_device);
 
 	printk("initial driver pump success!\n ");
+	printk("major: %d minor: %d\n",pump_major,pump_minor);
 	return 0;
 
 	fail:
@@ -155,6 +147,9 @@ static int pump_init(void)
 //static __exit void pump_exit(void)
 static void pump_exit(void)
 {
+	dev_t devno = MKDEV(pump_major, pump_minor);
+	kfree(pump_device);
+	unregister_chrdev_region(devno, 1);
 	printk("exit driver driver pump!\n");
 }
 
@@ -162,4 +157,3 @@ module_init(pump_init);
 module_exit(pump_exit);
 MODULE_AUTHOR("jokemilk,jokemilk@yahoo.com.cn");
 MODULE_LICENSE("Dual BSD/GPL");
-
