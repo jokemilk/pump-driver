@@ -53,25 +53,25 @@ void default_global_values(struct pump_dev *dev)
 	dev->pump_state.heart_beat = DEF_HEART_BEAT;
 	dev->pump_state.volume = DEF_VOL;
 }
-void Buzzer_Freq_Set( unsigned long freq )
+void Buzzer_Freq_Set(unsigned long freq)
 {
-	rGPBCON &= ~3;			//set GPB0 as tout0, pwm output
+	rGPBCON &= ~3; //set GPB0 as tout0, pwm output
 	rGPBCON |= 2;
 
 	rTCFG0 &= ~0xff;
-	rTCFG0 |= 15;			//prescaler = 15+1
+	rTCFG0 |= 15; //prescaler = 15+1
 	rTCFG1 &= ~0xf;
-	rTCFG1 |= 2;			//mux = 1/8
-	rTCNTB0 = (PCLK>>7)/freq;
-	rTCMPB0 = rTCNTB0>>1;	// 50%
+	rTCFG1 |= 2; //mux = 1/8
+	rTCNTB0 = (PCLK >> 7) / freq;
+	rTCMPB0 = rTCNTB0 >> 1; // 50%
 	rTCON &= ~0x1f;
-	rTCON |= 0xb;			//disable deadzone, auto-reload, inv-off, update TCNTB0&TCMPB0, start timer 0
-	rTCON &= ~2;			//clear manual update bit		//clear manual update bit
+	rTCON |= 0xb; //disable deadzone, auto-reload, inv-off, update TCNTB0&TCMPB0, start timer 0
+	rTCON &= ~2; //clear manual update bit		//clear manual update bit
 }
 
-void Buzzer_Stop( void )
+void Buzzer_Stop(void)
 {
-	rGPBCON &= ~3;			//set GPB0 as output
+	rGPBCON &= ~3; //set GPB0 as output
 	rGPBCON |= 1;
 	rGPBDAT &= ~1;
 }
@@ -81,21 +81,21 @@ void Buzzer_Stop( void )
  */
 static irqreturn_t timer_handler_2(int irq, void *dev_id)
 {
-		static int cnt = 0;
-		static int cnt1 = 0;
-		if(cnt++ == 8333)
-		{
-			cnt = 0;
-			cnt1++;
-			printk("\rtimer_handler %d",cnt1);
-//			Buzzer_Freq_Set(2000+cnt1*20);
-		}
-		return IRQ_HANDLED;
+	static int cnt = 0;
+	static int cnt1 = 0;
+	if (cnt++ == 200)
+	{
+		cnt = 0;
+		cnt1++;
+		printk("\rtimer_handler %d", cnt1);
+		Buzzer_Freq_Set(2000 + cnt1 * 20);
+	}
+	return IRQ_HANDLED;
 }
 static irqreturn_t timer_handler_1(int irq, void *dev_id)
 {
 
-		return IRQ_HANDLED;
+	return IRQ_HANDLED;
 }
 /*
  * Open and close
@@ -108,29 +108,34 @@ int pump_open(struct inode *inode, struct file *filp)
 
 	dev = container_of(inode->i_cdev, struct pump_dev, cdev);
 	filp->private_data = dev; /* for other methods */
-
+	printk("pump ready open\n");
 	spin_lock(&dev->lock);
+	printk("globel_cnt is %d\n", dev->globle_cnt);
 	if (dev->globle_cnt)
 	{
 		spin_unlock(&dev->lock);
+		printk("you can open only one device.\n");
 		return -EBUSY;
 	}
 	dev->globle_cnt++;
 	spin_unlock(&dev->lock);
+	printk("rTCFG0 %lx\n", rTCFG0);
+	printk("rTCFG1 %lx\n", rTCFG1);
+	printk("rTCON %lx\n", rTCON);
 //set timer 2
-	rTCNTB2 = (PCLK/3/2/200);   //压缩的时间
+	rTCNTB2 = (PCLK / 3 / 2 / 200); //压缩的时间
 	rTCMPB2 = 0;
 
-	rTCON &= ~0x00F000;	//
+	rTCON &= ~0x00F000; //
 	rTCON |= S3C2410_TCON_T2MANUALUPD;
 	rTCON |= S3C2410_TCON_T2RELOAD; //
 	rTCON &= ~S3C2410_TCON_T2MANUALUPD;
 
 //set timer 1
-	rTCNTB1 = 1;   //压缩的时间
+	rTCNTB1 = 1; //压缩的时间
 	rTCMPB1 = 0;
 
-	rTCON &= ~0x0000F0;	//
+	rTCON &= ~0x0000F0; //
 	rTCON |= S3C2410_TCON_T1MANUALUPD;
 	rTCON |= S3C2410_TCON_T1INVERT;
 	rTCON &= ~S3C2410_TCON_T1MANUALUPD;
@@ -150,12 +155,23 @@ int pump_open(struct inode *inode, struct file *filp)
 		printk("irq timer1 request fail\n");
 		return result;
 	}
+	printk("pump opened\n");
 	return 0; /* success */
 }
 
 int pump_release(struct inode *inode, struct file *filp)
 {
-
+	struct pump_dev *dev; /* device information */
+	dev = filp->private_data;
+	spin_lock(&dev->lock);
+	printk("globel_cnt is %d\n", dev->globle_cnt);
+	dev->globle_cnt--;
+	spin_unlock(&dev->lock);
+	rTCON &= ~(S3C2410_TCON_T0START | S3C2410_TCON_T1START
+			| S3C2410_TCON_T1START);
+	Buzzer_Stop();
+	free_irq(IRQ_TIMER1, NULL);
+	free_irq(IRQ_TIMER2, NULL);
 	return 0;
 }
 /*
@@ -164,6 +180,7 @@ int pump_release(struct inode *inode, struct file *filp)
 ssize_t pump_read(struct file *filp, char __user *buf, size_t count,
 		loff_t *f_pos)
 {
+
 	return 0;
 }
 
@@ -178,6 +195,56 @@ ssize_t pump_write(struct file *filp, const char __user *buf, size_t count,
 
 long pump_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
+	int err = 0;
+//	int retval = 0;
+
+	/*
+	 * extract the type and number bitfields, and don't decode
+	 * wrong cmds: return ENOTTY (inappropriate ioctl) before access_ok()
+	 */
+	if (_IOC_TYPE(cmd) != PUMP_IOC_MAGIC)
+		return -ENOTTY;
+	if (_IOC_NR(cmd) > PUMP_IOC_MAXNR)
+		return -ENOTTY;
+
+	/*
+	 * the direction is a bitmask, and VERIFY_WRITE catches R/W
+	 * transfers. `Type' is user-oriented, while
+	 * access_ok is kernel-oriented, so the concept of "read" and
+	 * "write" is reversed
+	 */
+	if (_IOC_DIR(cmd) & _IOC_READ)
+		err = !access_ok(VERIFY_WRITE, (void __user *) arg, _IOC_SIZE(cmd));
+	else if (_IOC_DIR(cmd) & _IOC_WRITE)
+		err = !access_ok(VERIFY_READ, (void __user *) arg, _IOC_SIZE(cmd));
+	if (err)
+		return -EFAULT;
+
+	switch (cmd)
+	{
+
+	case PUMP_RESET:
+		break;
+	case PUMP_START_T1:
+		rTCON |= S3C2410_TCON_T1START;
+		printk("start timer_1\n");
+		break;
+	case PUMP_START_T2:
+		rTCON |= S3C2410_TCON_T2START;
+		printk("start timer_2\n");
+		break;
+	case PUMP_STOP_T1:
+		rTCON &= ~S3C2410_TCON_T1START;
+		printk("stop timer_1\n");
+		break;
+	case PUMP_STOP_T2:
+		rTCON &= ~S3C2410_TCON_T2START;
+		printk("stop timer_1\n");
+		break;
+	default: /* redundant, as cmd was checked against MAXNR */
+		return -ENOTTY;
+	}
+//	return retval;
 	return 0;
 }
 
@@ -278,6 +345,7 @@ static void pump_exit(void)
 	dev_t devno = MKDEV(pump_major, pump_minor);
 	iounmap(base_addr_io);
 	iounmap(base_addr_timer);
+	cdev_del(&pump_device->cdev);
 	kfree(pump_device);
 	unregister_chrdev_region(devno, 1);
 	printk("exit driver driver pump!\n");
