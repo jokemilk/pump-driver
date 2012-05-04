@@ -49,10 +49,15 @@
 #define CHL	1
 #define PRES 9
 #define DEF_COMP_RATIO	1
-#define DEF_VOL		5000.0
+#define DEF_VOL		5000
 #define DEF_HEART_BEAT 70
 #define PCLK	50000000L
-
+#define Position_zero	266			//运动的原始零点
+#define M_p 0x08				//正反转
+#define M_n 0x10
+#define DEF_ACC 1071
+#define DEF_AVG 12857
+#define DEF_PWM 2500
 /*
  * Macros to ioremap
  */
@@ -107,28 +112,56 @@ static void __iomem *base_addr_timer;
 #define S3C2410_GPBCON	   (0x10)
 #define S3C2410_GPBDAT	   (0x14)
 #define S3C2410_GPBUP	   (0x18)
+#define S3C2410_GPFCON	   (0x50)
+#define S3C2410_GPFDAT	   (0x54)
+#define S3C2410_GPFUP	   (0x58)
 
 static void __iomem *base_addr_io;
 #define rGPBCON    (*(volatile unsigned *)(base_addr_io + S3C2410_GPBCON))	//Port B control
 #define rGPBDAT    (*(volatile unsigned *)(base_addr_io + S3C2410_GPBDAT))	//Port B data
 #define rGPBUP     (*(volatile unsigned *)(base_addr_io + S3C2410_GPBUP))	//Pull-up control B
+#define rGPFCON    (*(volatile unsigned *)(base_addr_io + S3C2410_GPFCON))	//Port B control
+#define rGPFDAT    (*(volatile unsigned *)(base_addr_io + S3C2410_GPFDAT))	//Port B data
+#define rGPFUP     (*(volatile unsigned *)(base_addr_io + S3C2410_GPFUP))	//Pull-up control B
 
+static void __iomem *base_addr;
+
+#define ADCCON		(*(volatile unsigned long *)(base_addr + S3C2410_ADCCON))	//ADC control
+#define ADCTSC		(*(volatile unsigned long *)(base_addr + S3C2410_ADCTSC))	//ADC touch screen control
+#define ADCDLY		(*(volatile unsigned long *)(base_addr + S3C2410_ADCDLY))	//ADC start or Interval Delay
+#define ADCDAT0		(*(volatile unsigned long *)(base_addr + S3C2410_ADCDAT0))	//ADC conversion data 0
+#define ADCDAT1		(*(volatile unsigned long *)(base_addr + S3C2410_ADCDAT1))	//ADC conversion data 1
+#define ADCUPDN		(*(volatile unsigned long *)(base_addr + 0x14))			//Stylus Up/Down interrupt status
+#define PRESCALE_DIS		(0 << 14)
+#define PRESCALE_EN		(1 << 14)
+#define PRSCVL(x)		((x) << 6)
+#define ADC_INPUT(x)		((x) << 3)
+#define ADC_START		(1 << 0)
+#define ADC_ENDCVT		(1 << 15)
+
+#define START_ADC_AIN(ch, prescale) \
+	do{ 	ADCCON = PRESCALE_EN | PRSCVL(prescale) | ADC_INPUT((ch)) ; \
+		ADCCON |= ADC_START; \
+	}while(0)
 /*
  * data structures
  */
 struct PUMP_STATE
 {
 	float compress_ratio; 	//压缩比
-	double volume;		    //压缩总量
+	uint volume;		    //压缩总量
 	uint heart_beat;
 	uint direction;
 	int step;
-	uint pwm_rate;
+	uint pwm_rate[2];
 	uint stat;
 	uint pos;
 	uint period;//定时器时间
-	uint time_push;
-	uint time_pull;
+	uint time_push_acc;
+	uint time_push_avg;
+	uint time_pull_acc;
+	uint time_pull_avg;
+	uint timer_reload;
 };
 
 struct pump_dev
@@ -136,7 +169,7 @@ struct pump_dev
 	unsigned long freq;
 	int ad_value;
 	int globle_cnt;
-	spinlock_t ADC_LOCK;
+	struct semaphore ADC_LOCK;
 	spinlock_t lock;
 	struct semaphore sem; /* mutual exclusion semaphore     */
 	struct cdev cdev; /* Char device structure		*/
