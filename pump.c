@@ -68,7 +68,9 @@ void default_global_values(struct pump_dev *dev)
 	dev->pump_state.direction = 0;
 	dev->pump_state.heart_beat = DEF_HEART_BEAT;
 	dev->pump_state.volume = DEF_VOL;
-	dev->pump_state.step = -4;
+	dev->pump_state.step = 0;
+	dev->pump_state.time_push_acc = DEF_ACC;
+	dev->pump_state.time_push_avg = DEF_AVG;
 	dev->pump_state.time_pull_acc = DEF_ACC;
 	dev->pump_state.time_pull_avg = DEF_AVG;
 	dev->pump_state.pwm_rate[0] = DEF_PWM;
@@ -80,7 +82,7 @@ void Buzzer_Freq_Set(unsigned long freq)
 	rGPBCON |= 0x8;
 
 //	rTCFG0 &= ~0xff;
-	rTCFG0 |= 4; //prescaler = 4+1
+//	rTCFG0 |= 4; //prescaler = 4+1
 	rTCFG1 &= 0xffffff0f;
 //	rTCFG1 |= 2<<4; //mux = 1/2
 	rTCNTB1 = (PCLK /10) / freq;
@@ -146,148 +148,143 @@ void Auto_zero(void)
 }*/
 static irqreturn_t timer_handler_0(int irq, void *dev_id)
 {
-//	unsigned long freq_1 = 0;
-	static int cnt = 0;
-//	rTCON &= ~S3C2410_TCON_T0START;
-	printk("\rtimer0_handler %d",cnt++);
-//	disable_irq(IRQ_TIMER0);
-/*	printk("f1");
-	if (cnt++ == 25)
-	{
-		cnt = 0;
-		Buzzer_Stop();
+		unsigned long freq_1 = 0;
+		static int cnt = 0;
+		rTCON &= ~S3C2410_TCON_T0START;
+		printk("\rtimer0_handler %d step %d",cnt,pump_device->pump_state.step);
 
-			DisableIrq(BIT_TIMER2);
-		 ClearPending(BIT_TIMER2);
-
-		if (pump_device->pump_state.direction == 0)
+		if (cnt++ == 25)
 		{
-			rGPFDAT = M_p;
-			if (pump_device->pump_state.step == 0)
+			cnt = 0;
+			Buzzer_Stop();
+			if (pump_device->pump_state.direction == 0)
 			{
-				freq_1 = pump_device->pump_state.pwm_rate[0];
-				pump_device->pump_state.timer_reload = pump_device->pump_state.time_push_acc;
-			}
-			else if ((pump_device->pump_state.step > 0)
-					&& (pump_device->pump_state.step < 4))
-			{
-				freq_1 = pump_device->pump_state.pwm_rate[0]
-						* (pump_device->pump_state.step + 1);
-				pump_device->pump_state.timer_reload = pump_device->pump_state.time_push_acc;
-			}
-			else if (pump_device->pump_state.step == 4)
-			{
-				freq_1 = pump_device->pump_state.pwm_rate[0] * 5;
-				pump_device->pump_state.timer_reload = pump_device->pump_state.time_push_avg;
-			}
-			else if (pump_device->pump_state.step <= 8)
-			{
-				freq_1 = pump_device->pump_state.pwm_rate[0]
-						* (9 - pump_device->pump_state.step);
-				pump_device->pump_state.timer_reload = pump_device->pump_state.time_push_acc;
-			}
-		}
-		else
-		{
-			rGPFDAT = M_n;
-			if (pump_device->pump_state.step == 0)
-			{
-				freq_1 = pump_device->pump_state.pwm_rate[1];
-				pump_device->pump_state.timer_reload = pump_device->pump_state.time_pull_acc;
-			}
-			else if ((pump_device->pump_state.step > 0)
-					&& (pump_device->pump_state.step < 4))
-			{
-				freq_1 = pump_device->pump_state.pwm_rate[1]
-						* (pump_device->pump_state.step + 1);
-				pump_device->pump_state.timer_reload = pump_device->pump_state.time_pull_acc;
-			}
-			else if (pump_device->pump_state.step == 4)
-			{
-				freq_1 = pump_device->pump_state.pwm_rate[1] * 5;
-				pump_device->pump_state.timer_reload = pump_device->pump_state.time_pull_avg;
-			}
-			else if (pump_device->pump_state.step <= 8)
-			{
-				freq_1 = pump_device->pump_state.pwm_rate[1]
-						* (9 - pump_device->pump_state.step);
-				pump_device->pump_state.timer_reload = pump_device->pump_state.time_pull_acc;
-			}
-		}
-
-		if (pump_device->pump_state.step == 9) //对正反脉冲的差值进行补偿阶段
-		{
-			if (pump_device->pump_state.direction == 1)
-			{
-				Buzzer_Stop();
-				AD_convert();
-				if (adc_data >= (Position_zero + 15)) //超出规定的范围就
+				rGPFDAT = M_p;
+				if (pump_device->pump_state.step == 0)
 				{
-					freq_1 = 7000;
-					rGPFDAT = M_n;
-					pump_device->pump_state.timer_reload = 700; //补偿用时0.025s
+					freq_1 = pump_device->pump_state.pwm_rate[0];
+					pump_device->pump_state.timer_reload = pump_device->pump_state.time_push_acc;
 				}
-				else if (adc_data <= (Position_zero - 15))
+				else if ((pump_device->pump_state.step > 0)
+						&& (pump_device->pump_state.step < 4))
 				{
-					freq_1 = 7000;
-					rGPFDAT = M_p;
-					pump_device->pump_state.timer_reload = 700;
+					freq_1 = pump_device->pump_state.pwm_rate[0]
+							* (pump_device->pump_state.step + 1);
+					pump_device->pump_state.timer_reload = pump_device->pump_state.time_push_acc;
 				}
-				else if (adc_data > (Position_zero - 20)
-						&& adc_data < (Position_zero + 20))
+				else if (pump_device->pump_state.step == 4)
+				{
+					freq_1 = pump_device->pump_state.pwm_rate[0] * 5;
+					pump_device->pump_state.timer_reload = pump_device->pump_state.time_push_avg;
+				}
+				else if (pump_device->pump_state.step <= 8)
+				{
+					freq_1 = pump_device->pump_state.pwm_rate[0]
+							* (9 - pump_device->pump_state.step);
+					pump_device->pump_state.timer_reload = pump_device->pump_state.time_push_acc;
+				}
+			}
+			else
+			{
+				rGPFDAT = M_n;
+				if (pump_device->pump_state.step == 0)
+				{
+					freq_1 = pump_device->pump_state.pwm_rate[1];
+					pump_device->pump_state.timer_reload = pump_device->pump_state.time_pull_acc;
+				}
+				else if ((pump_device->pump_state.step > 0)
+						&& (pump_device->pump_state.step < 4))
+				{
+					freq_1 = pump_device->pump_state.pwm_rate[1]
+							* (pump_device->pump_state.step + 1);
+					pump_device->pump_state.timer_reload = pump_device->pump_state.time_pull_acc;
+				}
+				else if (pump_device->pump_state.step == 4)
+				{
+					freq_1 = pump_device->pump_state.pwm_rate[1] * 5;
+					pump_device->pump_state.timer_reload = pump_device->pump_state.time_pull_avg;
+				}
+				else if (pump_device->pump_state.step <= 8)
+				{
+					freq_1 = pump_device->pump_state.pwm_rate[1]
+							* (9 - pump_device->pump_state.step);
+					pump_device->pump_state.timer_reload = pump_device->pump_state.time_pull_acc;
+				}
+			}
+
+/*			if (pump_device->pump_state.step == 9) //对正反脉冲的差值进行补偿阶段
+			{
+				if (pump_device->pump_state.direction == 1)
+				{
+					Buzzer_Stop();
+					AD_convert();
+					if (adc_data >= (Position_zero + 15)) //超出规定的范围就
+					{
+						freq_1 = 7000;
+						rGPFDAT = M_n;
+						pump_device->pump_state.timer_reload = 700; //补偿用时0.025s
+					}
+					else if (adc_data <= (Position_zero - 15))
+					{
+						freq_1 = 7000;
+						rGPFDAT = M_p;
+						pump_device->pump_state.timer_reload = 700;
+					}
+					else if (adc_data > (Position_zero - 20)
+							&& adc_data < (Position_zero + 20))
+					{
+						pump_device->pump_state.timer_reload = 50;
+						freq_1 = 0;
+					}
+				}
+				else
 				{
 					pump_device->pump_state.timer_reload = 50;
 					freq_1 = 0;
 				}
 			}
-			else
+			else if (pump_device->pump_state.step == 10) //在最原始的起始端进行参数更换，以免导致绝对位置改变
 			{
-				pump_device->pump_state.timer_reload = 50;
-				freq_1 = 0;
-			}
-		}
-		else if (pump_device->pump_state.step == 10) //在最原始的起始端进行参数更换，以免导致绝对位置改变
-		{
-			Buzzer_Stop();
-			pump_device->pump_state.step = -5;
-			if (pump_device->pump_state.direction == 1)
+				Buzzer_Stop();
+				pump_device->pump_state.step = -1;
+				if (pump_device->pump_state.direction == 1)
+				{
+					pump_device->pump_state.direction = 0;
+					pump_device->pump_state.timer_reload = 50;
+					freq_1 = 0;
+				}
+				else
+				{
+					pump_device->pump_state.direction = 1;
+					pump_device->pump_state.timer_reload = 50;
+					freq_1 = 0;
+				}
+			}*/
+//			printk("freq_1 %ld, reload %d\n",freq_1,pump_device->pump_state.timer_reload);
+			pump_device->pump_state.step++;
+			if(pump_device->pump_state.step == 9) //for test
 			{
-				pump_device->pump_state.direction = 0;
-				pump_device->pump_state.timer_reload = 50;
-				freq_1 = 0;
+				pump_device->pump_state.step = 0;
+				if(pump_device->pump_state.direction == 0)
+					pump_device->pump_state.direction = 1;
+				else
+					pump_device->pump_state.direction = 0;
 			}
-			else
-			{
-				pump_device->pump_state.direction = 1;
-				pump_device->pump_state.timer_reload = 50;
-				freq_1 = 0;
-			}
-		}
-		pump_device->pump_state.step++;
-		Buzzer_Freq_Set(freq_1);
-	}*/
-	printk("reload %d\n",pump_device->pump_state.timer_reload);
-	printk("rTCON %lx\n", rTCON);
-	rTCNTB0 = pump_device->pump_state.timer_reload;
 
-//	rTCON &= ~0x00000F; //
-//	rTCON |= 0x000007;
-	rTCON |= S3C2410_TCON_T0MANUALUPD;
-	rTCON &= ~S3C2410_TCON_T0MANUALUPD;
-	{
-		long i;
-		long j;
-		for(i=0;i<100000000;i++)
-			j=i;
-		printk("j %ld\n",j);
-	}
-//	rTCON |= S3C2410_TCON_T0START;
+//			freq_1 = 2500;
 
-//	printk("f2");
-//	enable_irq(IRQ_TIMER0);
-	printk("f3");
-	printk("rTCNTB0 %ld\n", rTCNTB0);
-	return IRQ_HANDLED;
+			Buzzer_Freq_Set(freq_1);
+		}
+/*		printk("reload %d\n",pump_device->pump_state.timer_reload);
+		printk("rTCON %lx\n", rTCON);*/
+		rTCNTB0 = pump_device->pump_state.timer_reload;
+
+		rTCON |= S3C2410_TCON_T0MANUALUPD;
+
+		rTCON &= ~S3C2410_TCON_T0MANUALUPD;
+
+		rTCON |= S3C2410_TCON_T0START;
+		return IRQ_HANDLED;
 }
 /*static irqreturn_t adcdone_int_handler(int irq, void *dev_id)
 {
@@ -338,14 +335,14 @@ int pump_open(struct inode *inode, struct file *filp)
 */
 
 //set timer 0
-	dev->pump_state.timer_reload =12500;
-	rTCNTB0 = 12500; //压缩的时间
+	dev->pump_state.timer_reload =100;
+	rTCNTB0 = 100; //压缩的时间
 	rTCMPB0 = 0;
 
 	rTCFG0 &= ~0xff;
 	rTCFG0 |=4; //pres 5
 	rTCFG1 &= ~(0xf);
-	rTCFG1 |= 0;//8
+	rTCFG1 |= 2;//8
 	rTCON &= ~0x00000F; //
 	rTCON |= S3C2410_TCON_T0MANUALUPD;
 	rTCON |= S3C2410_TCON_T0INVERT;
@@ -364,7 +361,7 @@ int pump_open(struct inode *inode, struct file *filp)
 		printk("irq timer2 request fail\n");
 		return result;
 	}*/
-	result = request_irq(IRQ_TIMER0, timer_handler_0, /*IRQF_DISABLED*/IRQF_NO_SUSPEND, "pump",
+	result = request_irq(IRQ_TIMER0, timer_handler_0, IRQF_DISABLED, "pump",
 			NULL);
 	if (result < 0)
 	{
@@ -379,6 +376,7 @@ int pump_open(struct inode *inode, struct file *filp)
 		return result;
 	}*/
 	printk("pump opened\n");
+	Auto_zero();
 	return 0; /* success */
 }
 
@@ -464,6 +462,7 @@ long pump_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		dev->pump_state.time_pull_avg = 30000 *dev->pump_state.time_pull;
 		dev->pump_state.pwm_rate[0] = dev->pump_state.volume*(1+dev->pump_state.compress_ratio)/4;
 		dev->pump_state.pwm_rate[1] = dev->pump_state.volume*15/(60-dev->pump_state.heart_beat*dev->pump_state.time_push);*/
+//		Auto_zero();
 		rTCON |= S3C2410_TCON_T0START;
 		printk("start timer_0\n");
 	}
@@ -473,7 +472,9 @@ long pump_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 //		printk("stop timer_1\n");
 		break;
 	case PUMP_STOP_T2:
+		Buzzer_Stop();
 		rTCON &= ~S3C2410_TCON_T0START;
+//		Auto_zero();
 		printk("stop timer_0\n");
 		break;
 	default: /* redundant, as cmd was checked against MAXNR */

@@ -103,10 +103,13 @@ static void __iomem *base_addr_timer;
 #define rTCON	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCON))
 #define rTCNTB0	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTB(0)))
 #define rTCMPB0	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCMPB(0)))
+#define rTCNTO0 (*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTO(0)))
 #define rTCNTB1	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTB(1)))
 #define rTCMPB1	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCMPB(1)))
+#define rTCNTO1 (*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTO(1)))
 #define rTCNTB2	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTB(2)))
 #define rTCMPB2	(*(volatile unsigned long *)(base_addr_timer + S3C2410_TCMPB(2)))
+#define rTCNTO2 (*(volatile unsigned long *)(base_addr_timer + S3C2410_TCNTO(2)))
 
 
 #define S3C2410_GPBCON	   (0x10)
