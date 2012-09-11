@@ -171,7 +171,7 @@ struct pump_dev
 {
 	unsigned long freq;
 	int ad_value;
-	int globle_cnt;
+	int globle_cnt; //opened instance number
 	struct semaphore ADC_LOCK;
 	spinlock_t lock;
 	struct semaphore sem; /* mutual exclusion semaphore     */

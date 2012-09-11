@@ -1,0 +1,5 @@
+#!/bin/sh
+module="pump"
+
+rmmod pump
+rm -f /dev/${module}

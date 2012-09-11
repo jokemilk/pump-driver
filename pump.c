@@ -249,8 +249,8 @@ static irqreturn_t timer_handler_0(int irq, void *dev_id)
 				 pump_device->pump_state.timer_reload = 50;
 				 freq_1 = 0;
 				 }*/
-				Auto_zero();
-				pump_device->pump_state = pump_state_temp; //update the pump statics
+//				Auto_zero();
+//				pump_device->pump_state = pump_state_temp; //update the pump statics
 			}
 			else
 			{
@@ -273,8 +273,8 @@ static irqreturn_t timer_handler_0(int irq, void *dev_id)
 		Buzzer_Freq_Set(freq_1);
 	}
 	/*		printk("reload %d\n",pump_device->pump_state.timer_reload);
-	 printk("rTCON %lx\n", rTCON);*/rTCNTB0 =
-			pump_device->pump_state.timer_reload;
+	 printk("rTCON %lx\n", rTCON);*/
+	rTCNTB0 = pump_device->pump_state.timer_reload;
 
 	rTCON |= S3C2410_TCON_T0MANUALUPD;
 
